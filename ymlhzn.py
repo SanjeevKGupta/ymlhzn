@@ -1,3 +1,12 @@
+#
+# A simple helper script to convert docker compose file into horizon files.
+#
+# Note:
+# 1. All features of docker-compose are not supported.
+# 2. MUST review the generated files and modify them as necessary.
+# 3. Pay attention to Error and Warning. Perform necessary correction and rerun the script.
+#
+
 import json
 import os
 import re
@@ -29,11 +38,11 @@ def find_type(value):
         return "string"
             
 # x.y.z 1 or 1.0 or 1.0.1 allowed
-def check_semver(version):
+def verify_version(version):
     semver_regex = re.compile(r'^\d+(\.\d+)?(\.\d+)?$')
     return re.match(semver_regex, version)
 
-def gen_service(s_dict, s_org_id, s_name, s_arch):
+def gen_service(s_org_id, s_arch, s_name, s_dict):
     hzn_meta_dict = {}
     hzn_dict = {"MetadataVars" : hzn_meta_dict}
     service_dict = {}
@@ -63,8 +72,7 @@ def gen_service(s_dict, s_org_id, s_name, s_arch):
                 req_svc = {}
                 req_svc["url"] = link_values[0]
                 req_svc["org"] = s_org_id
-                req_svc["version"] = "TBD"
-                req_svc["versionRange"] = "TBD"
+                req_svc["version"] = "To-Be-Updated"
                 req_svc["arch"] = s_arch
                 required_services.append(req_svc)
                 req_services.append(link_values[0])
@@ -89,7 +97,7 @@ def gen_service(s_dict, s_org_id, s_name, s_arch):
         image_str = s_dict['image']
         image_name_version = image_str.split(":") 
         if len(image_name_version) == 2:
-            if check_semver(image_name_version[1]):
+            if verify_version(image_name_version[1]):
                 service_dict["version"] = image_name_version[1]
 
                 deployment_dict= {}
@@ -138,24 +146,23 @@ def gen_service(s_dict, s_org_id, s_name, s_arch):
 if __name__ == '__main__':
     with open(INPUT_FILE) as f:
 
+        # Load yaml file as python dictionary
         data = yaml.load(f, Loader=yaml.FullLoader)
-        print(data)
-        print("\n")
+        print(json.dumps(data))
               
         if 'services' in data:
-            if not os.path.exists(PROJECT_DIR):
-                os.mkdir(PROJECT_DIR)
-
             services_dict = {}
             services_dict["services"] = {}
             services_dict["req_services"] = []
+
+            # Process each service 
             for service in data['services']:
-                service_dict = data['services'][service]
-                gen_service_dict, req_services = gen_service(service_dict, HZN_ORG_ID, service, ARCH)
+                gen_service_dict, req_services = gen_service(HZN_ORG_ID, ARCH, service, data['services'][service])
                 services_dict["services"][service] = gen_service_dict
                 if len(req_services) > 1:
                     services_dict["req_services"].append(req_services) 
 
+            # Update requiredServices version
             for req_services in services_dict["req_services"]:
                 for req_service in req_services:
                     service_dict = services_dict["services"][req_service]
@@ -164,15 +171,23 @@ if __name__ == '__main__':
                             if requiredService["url"] == req_service:
                                 requiredService["version"] = service_dict["service"]["version"]
                 
+            #Save horizon files
             for service in services_dict["services"]:
                 service_dir = PROJECT_DIR + "/" + service
+
+                if not os.path.exists(PROJECT_DIR):
+                    os.mkdir(PROJECT_DIR)
 
                 if not os.path.exists(service_dir):
                     os.mkdir(service_dir)
 
-                with open(service_dir + "/hzn.json", 'w') as f:
+                hzn_file = service_dir + "/hzn.json"
+                with open(hzn_file, 'w') as f:
+                    print ("Saving file: " + hzn_file)
                     print(json.dumps(services_dict["services"][service]["hzn"]), file=f)
     
-                with open(service_dir + "/service.definition.json", 'w') as f:
+                service_file = service_dir + "/service.definition.json"
+                with open(service_file, 'w') as f:
+                    print ("Saving file: " + service_file)
                     print(json.dumps(services_dict["services"][service]["service"]), file=f)
             
