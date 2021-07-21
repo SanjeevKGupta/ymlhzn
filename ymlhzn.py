@@ -5,7 +5,7 @@ import yaml
 
 ARCH='amd64'
 HZN_ORG_ID='dev'
-PROJECT='xibo'
+PROJECT='xyz'
 INPUT_FILE='docker-compose.yml'
 
 PROJECT_DIR='/tmp/' + PROJECT
