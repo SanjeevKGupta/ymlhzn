@@ -7,17 +7,11 @@
 # 3. Pay attention to Error and Warning. Perform necessary correction and rerun the script.
 #
 
+import argparse
 import json
 import os
 import re
 import yaml
-
-ARCH='amd64'
-HZN_ORG_ID='dev'
-PROJECT='xyz'
-INPUT_FILE='docker-compose.yml'
-
-PROJECT_DIR='/tmp/' + PROJECT
 
 def find_type(value):
     try:
@@ -144,7 +138,17 @@ def gen_service(s_org_id, s_arch, s_name, s_dict):
     return gen_service, req_services
 
 if __name__ == '__main__':
-    with open(INPUT_FILE) as f:
+    parser = argparse.ArgumentParser()
+    parser._action_groups.pop()
+    required = parser.add_argument_group('required arguments')
+    optional = parser.add_argument_group('optional arguments')
+    required.add_argument('-a', '--arch', type=str, required=True, help='Specify arch')
+    required.add_argument('-o', '--org', type=str, required=True, help='Specify org')
+    required.add_argument('-p', '--project', type=str, required=True, help='Specify project')
+    optional.add_argument('-f', '--file', default='docker-compose.yml', help='Optionally provide docker compose file name')
+    args = parser.parse_args()
+
+    with open(args.file) as f:
 
         # Load yaml file as python dictionary
         data = yaml.load(f, Loader=yaml.FullLoader)
@@ -157,7 +161,7 @@ if __name__ == '__main__':
 
             # Process each service 
             for service in data['services']:
-                gen_service_dict, req_services = gen_service(HZN_ORG_ID, ARCH, service, data['services'][service])
+                gen_service_dict, req_services = gen_service(args.org, args.arch, service, data['services'][service])
                 services_dict["services"][service] = gen_service_dict
                 if len(req_services) > 1:
                     services_dict["req_services"].append(req_services) 
@@ -173,10 +177,10 @@ if __name__ == '__main__':
                 
             #Save horizon files
             for service in services_dict["services"]:
-                service_dir = PROJECT_DIR + "/" + service
+                service_dir = args.project + "/" + service
 
-                if not os.path.exists(PROJECT_DIR):
-                    os.mkdir(PROJECT_DIR)
+                if not os.path.exists(args.project):
+                    os.mkdir(args.project)
 
                 if not os.path.exists(service_dir):
                     os.mkdir(service_dir)
